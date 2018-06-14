@@ -5,22 +5,25 @@ using UnityEngine;
 public class PlayerController : MonoBehaviour {
 
     //Variables
-    public Transform playerCam, character, camCenter, desiredCam;
+    public GameObject playerManager;
+    public Transform playerCam, character, camCenter, desiredCam, gunRotator, camCenterMin;
     public Rigidbody rb;
     public LayerMask lm;
-    public float mouseSensitivity, moveSpeed;
-    public int mouseInverted, mouseMin, mouseMax;
+    public float mouseSensitivity, moveSpeed, defaultCamAngle;
+    public float camCenterAdjustment, camCenterDetection, camCenterX, camCenterXMin, camCenterXMax, camCenterAvoidance;
     public float defaultZoom, camZoomHitModifier, smoothTime;
+    public int mouseInverted, mouseMin, mouseMax;
 
     private RaycastHit hit;
     private Vector3 movement = new Vector3();
-    private float zoom, targetZoom, zoomVelocity;
+    private float zoom, targetZoom, zoomVelocity, camCenterVelocity;
     private float mouseX, mouseY;
     private float moveFB, moveLR;
 
 	// Use this for initialization
 	void Start () {
-        		
+        mouseY = defaultCamAngle;
+        camCenterMin.localPosition = new Vector3(camCenterXMin, camCenter.localPosition.y, camCenter.localPosition.z);
 	}
 	
 	// Update is called once per frame
@@ -36,7 +39,7 @@ public class PlayerController : MonoBehaviour {
         //character movement
         movement.x = moveLR;
         movement.z = moveFB;
-        character.Translate(movement);
+        
         //set mouse look
         mouseY = Mathf.Clamp(mouseY, mouseMin, mouseMax);
         //rotate character and cam based on mouse look
@@ -56,6 +59,7 @@ public class PlayerController : MonoBehaviour {
         zoom = Mathf.SmoothDamp(zoom, targetZoom, ref zoomVelocity, smoothTime);
         playerCam.localPosition = new Vector3(playerCam.localPosition.x, playerCam.localPosition.y, zoom);
         playerCam.LookAt(camCenter);
+        gunRotator.localRotation = camCenter.localRotation;
     }
 }
  
