@@ -7,8 +7,9 @@ public class PlayerController : MonoBehaviour {
     //Variables
     public Transform playerCam, character, camCenter, desiredCam, gunRotator, camCenterMin;
     public Rigidbody rb;
-    public Collider c;
-    public LayerMask defaultLM, playerLM;
+    public CapsuleCollider c;
+    public LayerMask defaultLM, playerCollLM;
+    public List<Collider> collLst;
     public float mouseSensitivity, maxSpeed, acceleration, defaultCamAngle;
     public float camCenterAdjustment, camCenterDetection, camCenterX, camCenterXMin, camCenterXMax, camCenterAvoidance;
     public float defaultZoom, camZoomHitModifier, smoothTime;
@@ -85,56 +86,98 @@ public class PlayerController : MonoBehaviour {
         if (speed > maxSpeed)
             speed = maxSpeed;
         //get vector direction
-        if (moveLR == 0)
-        {
-            if (moveFB == 0)
-            { }
-            else if (moveFB < 0)
-                dir = -Mathf.PI / 2;
-            else
-                dir = Mathf.PI / 2;
-        }
-        else if (moveFB == 0)
-        {
-            if (moveLR == 0)
-            { }
-            else if (moveLR < 0)
-                dir = Mathf.PI;
-            else
-                dir = 0;
-        }
-        else
-        {
-            dir = Mathf.Atan2(moveFB, moveLR);
-        }
+        if (movementV2.magnitude > 0)
+            dir = Vector2Direction(movementV2);
         //Update vector3 with speed and direction
         movementV3.x = Mathf.Cos(dir) * speed;
         movementV3.z = Mathf.Sin(dir) * speed;
-        movementV3 = RotateVector(movementV3, character.rotation);
+        movementV3 = character.rotation * movementV3;
+        //Add collisions
+        if (collLst.Count > 0 && speed > 0)
+        {
+            movementV3 = AddCollisions(movementV3);
+            speed = movementV3.magnitude;
+        }
+        //Update speed with collisions
         //move character
         character.position += movementV3;
     }
 
-    private Vector3 RotateVector(Vector3 v, Quaternion q)
-    {
-        //rotate given vector by given quaternion
-        Vector3 u = new Vector3();
-        float s = q.w;
-        u.x = q.x; u.y = q.y; u.z = q.z;
-        v = 2f * Vector3.Dot(u, v) * u + (s * s - Vector3.Dot(u, u)) * v + 2f * s * Vector3.Cross(u, v);
-        return v;
-    }
-
     private void OnTriggerEnter(Collider other)
     {
-        Collider oC = other.GetComponent<Collider>();
-        Vector3 oV = new Vector3();
-        if (oC != null)
+        collLst.Add(other);
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        collLst.Remove(other);
+    }
+
+    private float Vector2Direction(Vector2 v)
+    {
+        //Convert vector2 to angle in radians
+        float d, x, y;
+        x = v.x;
+        y = v.y;
+        if (x == 0)
         {
-            oV = oC.ClosestPoint(c.bounds.center);
-            character.position += c.ClosestPoint(oV) - oV;
-            Debug.Log("triggered: " + (c.ClosestPoint(oV) - oV).ToString());
+            if (y == 0)
+            {
+                d = 0;
+                Debug.Log("Pass 0 vector2 to direction");
+            }
+            else if (y < 0)
+                d = -Mathf.PI / 2;
+            else
+                d = Mathf.PI / 2;
+            return d;
         }
+        else if (y == 0)
+        {
+            if (x == 0)
+            {
+                d = 0;
+                Debug.Log("Pass 0 vector2 to direction");
+            }
+            else if (x < 0)
+                d = Mathf.PI;
+            else
+                d = 0;
+            return d;
+        }
+        else
+        {
+            d = Mathf.Atan2(y, x);
+            return d;
+        }
+    }
+    private Vector3 AddCollisions(Vector3 v)
+    {
+        foreach (Collider oC in collLst)
+        {
+            Vector3 oV = new Vector3();
+            Vector3 v2 = new Vector3();
+            Vector2 fV = new Vector2();
+            float dirfV, magfV, dirV, dir;
+            //Get direction of collission point
+            oV = oC.ClosestPoint(c.bounds.center);
+            fV.x = (oV - c.bounds.center).x;
+            fV.y = (oV - c.bounds.center).z;
+            dirfV = Vector2Direction(fV);
+            //Get direction of movement
+            dirV = Vector2Direction(new Vector2(v.x, v.z));
+            //Get movement direction relative to collision
+            dir = dirV - dirfV;
+            //adjust movement direction if it is going towards collision
+            if (dir < Mathf.PI/2 || dir > -Mathf.PI/2)
+            {
+                magfV = Mathf.Cos(dir) * v.magnitude;
+                v2.z = Mathf.Cos(dir) * magfV;
+                v2.x = Mathf.Sin(dir) * magfV;
+                v -= v2;
+            }
+        }
+        return v;
     }
 }
  
