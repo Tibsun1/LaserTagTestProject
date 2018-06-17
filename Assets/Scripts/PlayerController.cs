@@ -9,14 +9,14 @@ public class PlayerController : MonoBehaviour {
     public Rigidbody rb;
     public CapsuleCollider c;
     public LayerMask defaultLM, playerCollLM;
-    public List<Collider> collLst;
-    public float mouseSensitivity, maxSpeed, acceleration, defaultCamAngle;
+    public float mouseSensitivity, maxSpeed, acceleration, defaultCamAngle, defaultLookDirection;
     public float camCenterAdjustment, camCenterDetection, camCenterX, camCenterXMin, camCenterXMax, camCenterAvoidance;
     public float defaultZoom, camZoomHitModifier, smoothTime;
     public int mouseInverted, mouseMin, mouseMax;
 
     private Vector3 movementV3 = new Vector3();
     private Vector2 movementV2 = new Vector2();
+    private List<Collider> collLst;
     private float zoom = 0, zoomVelocity = 0;
     private float mouseX, mouseY;
     private float moveFB, moveLR;
@@ -25,6 +25,7 @@ public class PlayerController : MonoBehaviour {
 	// Use this for initialization
 	void Start () {
         mouseY = defaultCamAngle;
+        mouseX = character.rotation.y;
         camCenterMin.localPosition = new Vector3(camCenterXMin, camCenter.localPosition.y, camCenter.localPosition.z);
     }
 	
@@ -93,12 +94,10 @@ public class PlayerController : MonoBehaviour {
         movementV3.z = Mathf.Sin(dir) * speed;
         movementV3 = character.rotation * movementV3;
         //Add collisions
-        if (collLst.Count > 0 && speed > 0)
+        if (collLst.Count > 0 && movementV3.magnitude > 0)
         {
             movementV3 = AddCollisions(movementV3);
-            speed = movementV3.magnitude;
         }
-        //Update speed with collisions
         //move character
         character.position += movementV3;
     }
@@ -153,28 +152,32 @@ public class PlayerController : MonoBehaviour {
     }
     private Vector3 AddCollisions(Vector3 v)
     {
+        //Add collisions on 2d plane
         foreach (Collider oC in collLst)
         {
             Vector3 oV = new Vector3();
-            Vector3 v2 = new Vector3();
-            Vector2 fV = new Vector2();
-            float dirfV, magfV, dirV, dir;
-            //Get direction of collission point
+            Vector3 cV2 = new Vector3();
+            Vector2 cV = new Vector2();
+            Vector2 mV = new Vector2();
+            float dircV, magfV, dirV, dir, dot;
+            //Get vector to collision point
             oV = oC.ClosestPoint(c.bounds.center);
-            fV.x = (oV - c.bounds.center).x;
-            fV.y = (oV - c.bounds.center).z;
-            dirfV = Vector2Direction(fV);
-            //Get direction of movement
-            dirV = Vector2Direction(new Vector2(v.x, v.z));
-            //Get movement direction relative to collision
-            dir = dirV - dirfV;
+            cV.x = (oV - c.bounds.center).x;
+            cV.y = (oV - c.bounds.center).z;
+            //Get movement vector
+            mV.x = v.x;
+            mV.y = v.z;
+            //Get collision direction
+            dircV = Vector2Direction(cV);
+            dot = Vector2.Dot(mV, cV);
             //adjust movement direction if it is going towards collision
-            if (dir < Mathf.PI/2 || dir > -Mathf.PI/2)
+            if (dot > 0)
             {
+                dir = Mathf.Acos(dot / (mV.magnitude * cV.magnitude));
                 magfV = Mathf.Cos(dir) * v.magnitude;
-                v2.z = Mathf.Cos(dir) * magfV;
-                v2.x = Mathf.Sin(dir) * magfV;
-                v -= v2;
+                cV2.x = Mathf.Cos(dircV) * magfV;
+                cV2.z= Mathf.Sin(dircV) * magfV;
+                v -= cV2;
             }
         }
         return v;
